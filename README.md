@@ -9,7 +9,7 @@ Does group-aware conformal calibration, which treats each battery cell as one un
 
 ## Data
 
-SNL subset of the BatteryLife dataset (Tan et al., KDD 2025): 52 commercial Li-ion 18650 cells (LFP, NCA, NMC), 3 temperatures, 23 protocols.
+SNL subset of the BatteryLife dataset (Tan et al., KDD 2025): 52 commercial Li-ion 18650 cells (LFP 9, NCA 22, NMC 21), 3 temperatures (15, 25, 35 °C), 23 charge/discharge protocols. Lifetimes range from 143 to 3,842 cycles.
 
 The dataset is **not included** in this repository because of its size. To run the notebook:
 
@@ -17,46 +17,33 @@ The dataset is **not included** in this repository because of its size. To run t
 2. Download `SNL.zip` and `Life labels.zip`.
 3. Unzip both into a folder named `dataset` next to the notebook, so you have `dataset/SNL/` and `dataset/Life labels/`.
 
-Please cite the original data paper: *Degradation of Commercial Lithium-Ion Cells as a Function of Chemistry and Cycling Conditions*, J. Electrochem. Soc., 2020, as well as BatteryLife.
+Please cite BatteryLife and the original data paper: *Degradation of Commercial Lithium-Ion Cells as a Function of Chemistry and Cycling Conditions*, J. Electrochem. Soc., 2020. Check the license terms on the Zenodo record before reusing the data.
 
 ## Method
 
-- Features: capacity retention and slope of the discharge-capacity curve over the first 20, 40, 60, 80 and 100 cycles (260 rows, 5 per cell).
-- Target: log10 of the cell lifetime.
-- Models: mean predictor, Ridge, gradient boosting.
-- Intervals: split conformal prediction at a 90% target, with ordinary calibration (random rows) and group-aware calibration (whole cells held out).
-- All evaluation splits are by cell, repeated 20 times.
+- **Features:** capacity retention and slope of the discharge-capacity curve over the first 20, 40, 60, 80 and 100 cycles (260 rows, 5 per cell).
+- **Target:** log10 of the cell lifetime.
+- **Models:** mean predictor, Ridge regression, gradient boosting.
+- **Intervals:** split conformal prediction with a 90% target.
+  - *Ordinary:* training and calibration rows are shuffled together, so the same cell can appear in both.
+  - *Group-aware:* whole cells are assigned to training or calibration, never both.
+- **Evaluation:** 50% training / 25% calibration / 25% test, split by cell and stratified by chemistry, repeated 20 times. An earlier 5-fold cross-validation run (also split by cell) was used as an exploratory check.
 
-## Results so far (midterm)
+## Results (midterm)
 
-| Split | Mean predictor | Ridge | Gradient boosting |
-|---|---|---|---|
-| Random row split (leaky), MAE in cycles | 611 | 147 | 43 |
-| Split by cell, MAE in cycles | 610 | 159 | 120 |
+Averages over 20 repeated 50/25/25 splits.
 
-| Method | Coverage (target 0.90) | Width (log10) |
+| Mean absolute error (cycles) | Random row split (leaky) | Split by cell |
 |---|---|---|
-| Ordinary | 0.679 | 0.192 |
-| Group-aware | 0.889 | 0.508 |
+| Mean predictor | 607 | 555 |
+| Ridge | 148 | 158 |
+| Gradient boosting | 62 | 143 |
 
-Group-aware coverage is higher in every chemistry and temperature group, but only 0.688 at 15 °C. Results are based on 52 cells, so subgroup numbers are noisy.
+| Method (target coverage 0.90) | Coverage | Coverage std | Width (log10) |
+|---|---|---|---|
+| Ordinary | 0.678 | 0.166 | 0.224 |
+| Group-aware | 0.875 | 0.107 | 0.505 |
 
-## How to run
+Ordinary calibration under-covers. Group-aware calibration comes closer to the target but gives wider intervals.
 
-```
-python -m venv venv
-venv\Scripts\activate
-pip install numpy pandas scikit-learn matplotlib ipykernel
-```
-
-Then open `battery_project.ipynb` in VS Code or Jupyter and run all cells.
-
-## References
-
-- Tan, R. et al. (2025). BatteryLife: A Comprehensive Dataset and Benchmark for Battery Life Prediction. KDD '25. https://doi.org/10.1145/3711896.3737372
-- Angelopoulos, A. N. and Bates, S. (2021). A Gentle Introduction to Conformal Prediction and Distribution-Free Uncertainty Quantification. https://arxiv.org/abs/2107.07511
-- Wu, K. et al. (2026). Uncertainty-Aware Early Battery Life Prediction with Composite-Kernel Gaussian Process Regression and Conformalized Adaptive Intervals. Algorithms, 19(7), 535. https://doi.org/10.3390/a19070535
-
-## Status
-
-Midterm stage. Planned next: per-chemistry calibration ablation, equal-width comparison, Gaussian process baseline, paper.
+In the exploratory 5-fold run, group-aware coverage was higher in every chemistry and temperature group but reached only 0.688 at
